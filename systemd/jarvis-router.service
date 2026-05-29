@@ -1,0 +1,22 @@
+[Unit]
+Description=Jarvis router (Claude Code + Channels in tmux)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+# Edit this path if you clone elsewhere.
+WorkingDirectory=%h/git/jarvis-router
+ExecStart=/usr/bin/env bash %h/git/jarvis-router/scripts/start-jarvis.sh
+ExecStartPost=/usr/bin/env bash %h/git/jarvis-router/scripts/health-check.sh
+ExecStop=/usr/bin/env bash %h/git/jarvis-router/scripts/stop-jarvis.sh
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=60s
+
+# tmux session is the "fork" target; systemd needs to know not to
+# consider this dead just because the foreground bash exited.
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target
