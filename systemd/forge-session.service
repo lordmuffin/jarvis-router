@@ -1,0 +1,22 @@
+[Unit]
+Description=Jarvis Forge agent session (on-demand)
+After=network-online.target jarvis-router.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Edit this path if you clone elsewhere.
+WorkingDirectory=%h/git/jarvis-router
+ExecStart=/usr/bin/env bash %h/git/jarvis-router/scripts/start-forge.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forge-session
+
+# Forge runs to completion and is not auto-restarted. The watcher
+# spawns start-forge.sh directly (not via this unit) when the queue
+# gets new items. This unit exists for manual invocation:
+#   systemctl --user start forge-session.service
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target

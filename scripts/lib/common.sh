@@ -28,7 +28,19 @@ load_env() {
     : "${OP_BOT_TOKEN_REF:=}"
     : "${STARTUP_TIMEOUT:=30}"
 
+    : "${FORGE_TMUX_SESSION:=forge}"
+    : "${FORGE_PROJECT_DIR:=${VAULT_PATH}}"
+    : "${FORGE_QUEUE_PATH:=${VAULT_PATH}/10 Projects/Jarvis/Infrastructure/forge-queue.md}"
+    : "${FORGE_SYSTEM_PROMPT:=${VAULT_PATH}/10 Projects/Jarvis/Infrastructure/forge-system-prompt.md}"
+    : "${FORGE_OP_BOT_TOKEN_REF:=}"
+    : "${FORGE_TELEGRAM_CHAT_ID:=7024287135}"
+    : "${FORGE_WATCHER_POLL_INTERVAL:=30}"
+    : "${FORGE_STARTUP_TIMEOUT:=10}"
+
     export VAULT_PATH TMUX_SESSION JARVIS_PROJECT_DIR OP_BOT_TOKEN_REF STARTUP_TIMEOUT
+    export FORGE_TMUX_SESSION FORGE_PROJECT_DIR FORGE_QUEUE_PATH FORGE_SYSTEM_PROMPT
+    export FORGE_OP_BOT_TOKEN_REF FORGE_TELEGRAM_CHAT_ID FORGE_WATCHER_POLL_INTERVAL
+    export FORGE_STARTUP_TIMEOUT
 }
 
 # Resolve a 1Password secret reference. Stdout = the secret. Exits
@@ -53,4 +65,52 @@ tmux_session_alive() {
 # Today's daily routing log path inside the vault.
 todays_routing_log() {
     printf '%s/00 Inbox/jarvis-routing-%s.md\n' "$VAULT_PATH" "$(date +%Y-%m-%d)"
+}
+
+# Return 0 if the file at "$1" contains an unchecked "- [ ]" item inside
+# its "## Active" section, non-zero otherwise. Used by forge-watcher to
+# decide when to spawn a Forge session and by start-forge.sh to detect
+# whether a session crashed mid-task.
+#
+# Note: the awk pattern uses `hit=1; exit` with `END{exit !hit}` rather
+# than `exit 0` / `END{exit 1}` because awk runs the END block after any
+# `exit`, and a second `exit` in END overrides the earlier status.
+active_queue_has_unchecked() {
+    local path="$1"
+    [[ -f "$path" ]] || return 1
+    awk '
+        /^## Active/ { found = 1; next }
+        found && /^## / { found = 0 }
+        found && /^- \[ \]/ { hit = 1; exit }
+        END { exit !hit }
+    ' "$path"
+}
+
+# POST a sendMessage to the Telegram Bot API. Arg 1 = chat id, arg 2 =
+# message text. Pulls the token from FORGE_OP_BOT_TOKEN_REF via op_read.
+# Returns non-zero on any failure (missing token ref, op locked, curl
+# failure) but does not die() — callers in crash paths must still exit
+# with the crash status even if notification fails.
+notify_telegram() {
+    local chat_id="$1"
+    local text="$2"
+
+    if [[ -z "${FORGE_OP_BOT_TOKEN_REF:-}" ]]; then
+        warn "FORGE_OP_BOT_TOKEN_REF empty; skipping Telegram notify."
+        return 1
+    fi
+
+    local token
+    if ! token="$(op_read "$FORGE_OP_BOT_TOKEN_REF" 2>/dev/null)"; then
+        warn "could not resolve Forge bot token; skipping Telegram notify."
+        return 1
+    fi
+
+    command -v curl >/dev/null 2>&1 || { warn "curl not on PATH; skipping Telegram notify."; return 1; }
+
+    curl -sS -X POST \
+        --data-urlencode "chat_id=${chat_id}" \
+        --data-urlencode "text=${text}" \
+        "https://api.telegram.org/bot${token}/sendMessage" \
+        >/dev/null
 }
