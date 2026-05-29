@@ -118,13 +118,80 @@ systemctl --user status jarvis-router
 bash scripts/health-check.sh
 ```
 
-## 8. Uninstall
+## 8. Forge agent (optional)
+
+Forge is a second, on-demand work session. Kai delegates background
+implementation tasks to it via a queue file in the vault. Skip this
+section if you only want Kai.
+
+### 8a. Create the ForgeBot
+
+1. Open Telegram → BotFather → `/newbot`. Name it (e.g. "Jarvis
+   ForgeBot"). Pick a username ending in `bot`.
+2. Copy the token BotFather hands back.
+
+### 8b. Store the token in 1Password
+
+```bash
+op item create --category=login \
+  --vault=Jarvis \
+  --title='jarvis-router-forgebot' \
+  bot_token='<paste-token>'
+```
+
+(Vault/item/field names follow the same convention as the Kai bot.
+Confirm the exact reference works with `op read`.)
+
+### 8c. Configure the watcher
+
+```bash
+# In .env (or .env.local), set:
+FORGE_OP_BOT_TOKEN_REF="op://Jarvis/jarvis-router-forgebot/bot_token"
+
+# Make sure the queue file exists in the vault:
+mkdir -p "${VAULT_PATH}/10 Projects/Jarvis/Infrastructure"
+touch    "${VAULT_PATH}/10 Projects/Jarvis/Infrastructure/forge-queue.md"
+
+# Install the systemd units alongside jarvis-router:
+cp systemd/forge-watcher.service ~/.config/systemd/user/
+cp systemd/forge-session.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now forge-watcher.service
+```
+
+Optionally install `inotify-tools` for event-driven wakeups (the
+watcher falls back to a 30-second poll loop without it):
+
+```bash
+sudo apt install inotify-tools     # Debian/Ubuntu
+```
+
+### 8d. Verify
+
+```bash
+systemctl --user status forge-watcher
+bash scripts/health-check.sh
+# expect: forge: idle | forge-watcher: active
+```
+
+Smoke test:
+
+```bash
+echo '- [ ] hello forge' >> \
+  "${VAULT_PATH}/10 Projects/Jarvis/Infrastructure/forge-queue.md"
+# Within ~30s a Forge tmux session appears: tmux ls
+# /tmp/forge-start.log gets a "RUNNING" line
+```
+
+## 9. Uninstall
 
 ```bash
 systemctl --user disable --now jarvis-router
+systemctl --user disable --now forge-watcher 2>/dev/null || true
 bash scripts/stop-jarvis.sh
+tmux kill-session -t forge 2>/dev/null || true
 rm -rf ~/git/jarvis-router
 ```
 
 The vault state survives — `routing-memory.md`, daily logs, personas,
-and the routing identity are all preserved by design.
+the Forge queue, and the routing identity are all preserved by design.
