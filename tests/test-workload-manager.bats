@@ -63,7 +63,10 @@ EOF
 exit 0
 EOF
     chmod +x "$stubdir/tmux"
-    run bash -c "PATH='$stubdir:\$PATH'; source '$REPO_ROOT/scripts/workload-start.sh' >/dev/null 2>&1; is_gpu_busy && echo busy"
+    # Pass PATH via env so the stub dir prefixes the real PATH for both
+    # the source (needs dirname) and the function call (needs tmux).
+    run env "PATH=$stubdir:$PATH" bash -c \
+        "source '$REPO_ROOT/scripts/workload-start.sh' >/dev/null 2>&1; is_gpu_busy && echo busy"
     [[ "$output" == *"busy"* ]]
     rm -rf "$stubdir"
 }
