@@ -1,0 +1,17 @@
+[Unit]
+Description=Jarvis Forge Queue Watcher
+After=network-online.target jarvis-router.service
+Wants=jarvis-router.service network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10s
+WorkingDirectory=%h/git/jarvis-router
+ExecStart=/usr/bin/env bash %h/git/jarvis-router/scripts/forge-watcher.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forge-watcher
+
+[Install]
+WantedBy=default.target

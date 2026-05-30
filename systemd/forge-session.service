@@ -1,0 +1,17 @@
+[Unit]
+Description=Jarvis Forge Agent Session (on-demand)
+After=network-online.target
+Wants=network-online.target
+PartOf=forge-watcher.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+WorkingDirectory=%h/git/jarvis-router
+ExecStart=/usr/bin/env bash %h/git/jarvis-router/scripts/start-forge.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forge-session
+
+[Install]
+WantedBy=default.target
