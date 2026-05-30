@@ -75,7 +75,7 @@ main() {
         exit 0
     fi
     if [[ -s "/tmp/vast-${type}.instance" ]]; then
-        log "Workload '$type' already running on Vast.ai (instance $(cat /tmp/vast-${type}.instance))."
+        log "Workload '$type' already running on Vast.ai (instance $(cat "/tmp/vast-${type}.instance"))."
         workload_log "$type" "already running (cloud)"
         exit 0
     fi

@@ -18,8 +18,10 @@ die()  { err "$*"; exit 1; }
 load_env() {
     local env_file="${JARVIS_ENV_FILE:-${REPO_ROOT}/.env}"
     if [[ -f "$env_file" ]]; then
+        set -a
         # shellcheck disable=SC1090
-        set -a; . "$env_file"; set +a
+        . "$env_file"
+        set +a
     fi
 
     : "${VAULT_PATH:?VAULT_PATH not set (copy .env.example to .env)}"

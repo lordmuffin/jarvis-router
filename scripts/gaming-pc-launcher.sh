@@ -27,8 +27,10 @@ SSH_TIMEOUT=5
 load_env_if_present() {
     local env_file="${JARVIS_ENV_FILE:-${REPO_ROOT}/.env}"
     if [[ -f "$env_file" ]]; then
+        set -a
         # shellcheck disable=SC1090
-        set -a; . "$env_file"; set +a
+        . "$env_file"
+        set +a
     fi
 }
 
@@ -50,6 +52,9 @@ ssh_args() {
 ssh_exec() {
     local -a args
     mapfile -t args < <(ssh_args)
+    # SC2029: intentional — the command string is meant to expand on the
+    # remote host, not locally.
+    # shellcheck disable=SC2029
     ssh "${args[@]}" "$GAMING_PC_HOST" "$@"
 }
 

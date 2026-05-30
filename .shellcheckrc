@@ -1,0 +1,7 @@
+# Make `# shellcheck source=lib/common.sh` directives resolve relative to
+# the script being linted, not the shellcheck CWD. Lets us lint from repo
+# root with `find scripts -name '*.sh' | xargs shellcheck -x`.
+source-path=SCRIPTDIR
+
+# Follow sourced files by default — equivalent to passing -x.
+external-sources=true

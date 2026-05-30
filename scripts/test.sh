@@ -8,8 +8,9 @@ cd "$REPO_ROOT"
 
 if command -v shellcheck >/dev/null 2>&1; then
     echo "==> shellcheck"
-    # shellcheck-disable: tests use bats which has its own syntax; lint .sh only
-    find scripts -name '*.sh' -print0 | xargs -0 shellcheck
+    # Lint .sh files only — bats files have their own syntax. -x follows
+    # `. lib/common.sh` so sourced helpers don't trip SC1091.
+    find scripts -name '*.sh' -print0 | xargs -0 shellcheck -x
 else
     echo "shellcheck not found; skipping lint" >&2
 fi
