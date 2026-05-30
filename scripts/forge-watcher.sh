@@ -19,7 +19,15 @@ watch_log() {
 
 active_has_unchecked() {
     [[ -f "$QUEUE" ]] || return 1
-    awk '/^## Active/{found=1; next} found && /^## /{found=0} found && /^- \[ \]/{exit 0} END{exit 1}' "$QUEUE"
+    # awk gotcha: `exit 0` still runs END, so plain `END{exit 1}` would
+    # override our success status. Track the match in `m` and exit
+    # from END conditionally.
+    awk '
+        /^## Active/ { f=1; next }
+        f && /^## / { f=0 }
+        f && /^- \[ \]/ { m=1; exit }
+        END { exit !m }
+    ' "$QUEUE"
 }
 
 trigger_if_needed() {

@@ -14,7 +14,12 @@ setup() {
 @test "active_item_detection: succeeds when Active section has unchecked item" {
     local f; f=$(mktemp)
     printf '## Active\n- [ ] do something\n## Done\n' > "$f"
-    run awk '/^## Active/{found=1; next} found && /^## /{found=0} found && /^- \[ \]/{exit 0} END{exit 1}' "$f"
+    run awk '
+        /^## Active/ { f=1; next }
+        f && /^## / { f=0 }
+        f && /^- \[ \]/ { m=1; exit }
+        END { exit !m }
+    ' "$f"
     [ "$status" -eq 0 ]
     rm "$f"
 }
@@ -22,7 +27,12 @@ setup() {
 @test "active_item_detection: fails when Active section is empty" {
     local f; f=$(mktemp)
     printf '## Active\n\n## Done\n' > "$f"
-    run awk '/^## Active/{found=1; next} found && /^## /{found=0} found && /^- \[ \]/{exit 0} END{exit 1}' "$f"
+    run awk '
+        /^## Active/ { f=1; next }
+        f && /^## / { f=0 }
+        f && /^- \[ \]/ { m=1; exit }
+        END { exit !m }
+    ' "$f"
     [ "$status" -eq 1 ]
     rm "$f"
 }
@@ -30,7 +40,12 @@ setup() {
 @test "active_item_detection: fails when Active section only has checked items" {
     local f; f=$(mktemp)
     printf '## Active\n- [x] already done\n## Done\n' > "$f"
-    run awk '/^## Active/{found=1; next} found && /^## /{found=0} found && /^- \[ \]/{exit 0} END{exit 1}' "$f"
+    run awk '
+        /^## Active/ { f=1; next }
+        f && /^## / { f=0 }
+        f && /^- \[ \]/ { m=1; exit }
+        END { exit !m }
+    ' "$f"
     [ "$status" -eq 1 ]
     rm "$f"
 }
@@ -38,7 +53,12 @@ setup() {
 @test "active_item_detection: fails when no Active section present" {
     local f; f=$(mktemp)
     printf '## Backlog\n- [ ] staged task\n' > "$f"
-    run awk '/^## Active/{found=1; next} found && /^## /{found=0} found && /^- \[ \]/{exit 0} END{exit 1}' "$f"
+    run awk '
+        /^## Active/ { f=1; next }
+        f && /^## / { f=0 }
+        f && /^- \[ \]/ { m=1; exit }
+        END { exit !m }
+    ' "$f"
     [ "$status" -eq 1 ]
     rm "$f"
 }
