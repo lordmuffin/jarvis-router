@@ -118,13 +118,125 @@ systemctl --user status jarvis-router
 bash scripts/health-check.sh
 ```
 
-## 8. Uninstall
+## 8. Forge Agent setup (optional but recommended)
+
+Forge runs on demand when Kai writes a task to `forge-queue.md`.
+
+1. **Create a second Telegram bot** via `@BotFather` → `/newbot`.
+   Display name: `Forge` (or `JarvisForge`). Username must end in `bot`.
+2. **Store the token in 1Password**:
+
+   ```bash
+   op item create --category login --title "Jarvis ForgeBot" \
+       --vault Personal token=<paste-token>
+   ```
+
+3. **Add the secret reference to `.env`**:
+
+   ```bash
+   FORGE_OP_BOT_TOKEN_REF="op://Personal/Jarvis ForgeBot/token"
+   ```
+
+4. **Install inotify-tools** (for event-driven queue watching; falls
+   back to a 30s poll loop if missing):
+
+   ```bash
+   # Arch / CachyOS:
+   sudo pacman -S inotify-tools
+   ```
+
+5. **Enable the watcher** under systemd --user:
+
+   ```bash
+   cp systemd/forge-watcher.service systemd/forge-session.service \
+       ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now forge-watcher.service
+   systemctl --user status forge-watcher
+   ```
+
+6. **Smoke test**: append a dummy task to the Active section of the
+   queue and confirm Forge starts within 30s:
+
+   ```bash
+   echo '- [ ] test task — delete me' \
+       >> "${VAULT_PATH}/10 Projects/Jarvis/Infrastructure/forge-queue.md"
+   # Wait up to 30s, then:
+   tmux has-session -t forge && echo "Forge launched"
+   ```
+
+## 9. Workload prerequisites (optional)
+
+These are needed only if you plan to use `workload-start.sh` for
+transcription, voice, or cloud GPU.
+
+### Vast.ai cloud GPU
 
 ```bash
-systemctl --user disable --now jarvis-router
+# 1. Get an API key from https://vast.ai/console → Account → API Key
+# 2. Add to .env:
+VAST_API_KEY=<your-key>
+# 3. Verify search works (no charge to search):
+bash scripts/vast-launcher.sh status forge   # exits 0 with "no instance"
+```
+
+**Cost guardrail**: only use cloud GPU for batch jobs > 30 min. Always
+verify the destroy succeeded — `vast.ai/console` shows live instances.
+
+### Gaming PC (Ollama with AMD ROCm)
+
+One-time setup on the gaming PC (confirmed: AMD Radeon RX 9070 XT 16GB,
+gfx1201/RDNA 4, CachyOS 7.0.6 with DRM 3.64):
+
+```bash
+# 1. On the gaming PC: install Ollama with ROCm.
+yay -S ollama-rocm        # requires ROCm 6.3+ for native gfx1201
+
+# 2. If ROCm doesn't detect gfx1201, set the override:
+echo 'export HSA_OVERRIDE_GFX_VERSION=11.0.0' >> ~/.config/fish/config.fish
+
+# 3. Pre-pull the default model:
+ollama pull qwen2.5-coder:14b     # ~9GB Q4
+
+# 4. On the Jarvis host: set up SSH key auth to the gaming PC:
+ssh-copy-id -i ~/.ssh/id_ed25519.pub gaming-pc-host
+# Add to .env:
+#   GAMING_PC_HOST=<ip-or-hostname>
+#   GAMING_PC_SSH_KEY=~/.ssh/id_ed25519
+#   GAMING_PC_INFERENCE_MODEL=qwen2.5-coder:14b
+
+# 5. Verify:
+bash scripts/gaming-pc-launcher.sh available    # 0 if reachable + k3s-agent inactive
+bash scripts/gaming-pc-launcher.sh status       # 0 if ollama serve is up
+```
+
+**16GB VRAM ceiling**: 70B models will **not fit**. Stick to:
+`qwen2.5-coder:14b` (forge/code), `llama3.1:8b-q8` (general),
+`qwen2.5:3b` (classification only).
+
+### Voice stack (LXC 400)
+
+The Kokoro TTS + XTTS docker stack runs inside LXC 400 on the Proxmox
+host (`192.168.1.101`). Andrew sets up the LXC and docker-compose file
+out of band; `start-voice.sh` only needs SSH access to Proxmox to call
+`pct exec 400`. Confirm:
+
+```bash
+ssh 192.168.1.101 "pct exec 400 -- docker ps"   # should list voice containers
+bash scripts/start-voice.sh status               # 0 if both endpoints green
+```
+
+## 10. Uninstall
+
+```bash
+systemctl --user disable --now jarvis-router forge-watcher
+bash scripts/workload-stop.sh forge
+bash scripts/workload-stop.sh transcription
+bash scripts/workload-stop.sh voice
 bash scripts/stop-jarvis.sh
 rm -rf ~/git/jarvis-router
 ```
 
 The vault state survives — `routing-memory.md`, daily logs, personas,
-and the routing identity are all preserved by design.
+the routing identity, the forge queue, and the transcription queue
+are all preserved by design.

@@ -54,3 +54,40 @@ tmux_session_alive() {
 todays_routing_log() {
     printf '%s/00 Inbox/jarvis-routing-%s.md\n' "$VAULT_PATH" "$(date +%Y-%m-%d)"
 }
+
+# Best-effort Telegram notification. Usage:
+#   telegram_notify "message"                  (uses OP_BOT_TOKEN_REF + TELEGRAM_CHAT_ID)
+#   telegram_notify "message" "<chat_id>"      (override chat id)
+#   telegram_notify "message" "<chat_id>" "<op-ref>"  (override bot token ref)
+# Failures are logged and swallowed — never block the calling workload.
+telegram_notify() {
+    local msg="$1"
+    local chat_id="${2:-${TELEGRAM_CHAT_ID:-}}"
+    local token_ref="${3:-${OP_BOT_TOKEN_REF:-}}"
+
+    if [[ -z "$chat_id" ]]; then
+        warn "telegram_notify: no TELEGRAM_CHAT_ID set; skipping notification"
+        return 0
+    fi
+    if [[ -z "$token_ref" ]]; then
+        warn "telegram_notify: no bot token reference; skipping notification"
+        return 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        warn "telegram_notify: curl not on PATH; skipping notification"
+        return 0
+    fi
+
+    local token
+    if ! token="$(op_read "$token_ref" 2>/dev/null)"; then
+        warn "telegram_notify: could not resolve bot token from $token_ref; skipping"
+        return 0
+    fi
+
+    curl -fsS --max-time 5 \
+        -X POST "https://api.telegram.org/bot${token}/sendMessage" \
+        --data-urlencode "chat_id=${chat_id}" \
+        --data-urlencode "text=${msg}" \
+        >/dev/null 2>&1 \
+        || warn "telegram_notify: send failed (chat_id=${chat_id})"
+}
