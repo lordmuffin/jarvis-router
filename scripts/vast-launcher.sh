@@ -29,8 +29,10 @@ instance_file() {
 load_env_if_present() {
     local env_file="${JARVIS_ENV_FILE:-${REPO_ROOT}/.env}"
     if [[ -f "$env_file" ]]; then
+        set -a
         # shellcheck disable=SC1090
-        set -a; . "$env_file"; set +a
+        . "$env_file"
+        set +a
     fi
 }
 

@@ -33,6 +33,9 @@ ssh_proxmox() {
     if [[ -n "$PROXMOX_SSH_KEY" ]]; then
         args+=(-i "$PROXMOX_SSH_KEY")
     fi
+    # SC2029: intentional — the command string is meant to expand on the
+    # Proxmox host (we want `pct exec ...` parsed there, not locally).
+    # shellcheck disable=SC2029
     ssh "${args[@]}" "$PROXMOX_HOST" "$@"
 }
 
