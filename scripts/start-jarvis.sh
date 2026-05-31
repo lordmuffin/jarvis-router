@@ -37,7 +37,7 @@ else
 fi
 
 log "Starting tmux session '$TMUX_SESSION' in $JARVIS_PROJECT_DIR ..."
-tmux new-session -d -s "$TMUX_SESSION" -c "$JARVIS_PROJECT_DIR" "claude"
+tmux new-session -d -s "$TMUX_SESSION" -c "$JARVIS_PROJECT_DIR" "claude --channels plugin:telegram@claude-plugins-official"
 
 # Wait for Claude Code to come up (the pane should have output).
 elapsed=0
@@ -53,10 +53,9 @@ if ! tmux_session_alive "$TMUX_SESSION"; then
     die "tmux session died during startup. Investigate manually."
 fi
 
-log "Session up. Pair the bot if you haven't yet:"
+log "Session up with Telegram channel plugin loaded. Pair the bot if you haven't yet:"
 log "  1. tmux attach -t $TMUX_SESSION"
-log "  2. In the Claude Code prompt: /plugin install channels  (first time only)"
-log "  3. /telegram:configure  -> paste bot token from 1Password"
-log "  4. Restart Claude Code (the plugin needs a restart to start polling)"
-log "  5. DM the bot in Telegram; paste the 6-char pairing code back"
+log "  2. In the Claude Code prompt: /telegram:configure  -> paste bot token from 1Password"
+log "  3. Restart Claude Code (the plugin needs a restart to start polling)"
+log "  4. DM the bot in Telegram; paste the 6-char pairing code back"
 log "Detach with Ctrl-b d. NEVER Ctrl-c (that kills the session)."
