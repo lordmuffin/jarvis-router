@@ -17,6 +17,13 @@ echo "stub claude alive"
 sleep 60
 EOF
     chmod +x "$STUB_BIN/claude"
+
+    cat > "$STUB_BIN/bun" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$STUB_BIN/bun"
+
     export PATH="$STUB_BIN:$PATH"
 }
 

@@ -9,13 +9,20 @@ for the one-page overview; this doc is the detailed walk-through.
 |---------------|----------------------------------------|---------------------------|
 | `tmux` ≥ 3.0  | Headless session that owns Claude Code | `tmux -V`                 |
 | Claude Code   | The Jarvis runtime                     | `claude --version`        |
+| `bun`         | Runtime the Telegram channel plugin spawns its MCP server with | `bun --version` |
 | `op` (1Password CLI) | Bot token retrieval at start    | `op --version && op whoami` |
 | `bats-core`   | Test runner (tests only)               | `bats --version`          |
 | `shellcheck`  | Bash lint (build only)                 | `shellcheck --version`    |
 
-If any of `tmux`, `claude`, or `op` is missing, install before going
-further. `bats` and `shellcheck` are only needed if you plan to run the
-test suite.
+If any of `tmux`, `claude`, `bun`, or `op` is missing, install before
+going further. `bats` and `shellcheck` are only needed if you plan to
+run the test suite.
+
+Install `bun` if absent: `curl -fsSL https://bun.sh/install | bash`
+(then re-source your shell so `~/.bun/bin/bun` is on PATH). Without
+`bun`, the Telegram channel plugin loads but its MCP server fails to
+spawn (ENOENT) and the bot never comes online — `start-jarvis.sh`
+preflights this and fails early.
 
 ## 2. Vault prerequisites
 
@@ -83,22 +90,26 @@ tmux attach -t "$TMUX_SESSION"
 
 Inside the attached session (first-run only):
 
-1. `/plugin install channels`
-2. `/telegram:configure` → paste the bot token from 1Password
-3. Restart Claude Code (the plugin requires a restart to start polling)
-4. Detach with `Ctrl-b d` — **never `Ctrl-c`** (that kills the session)
+1. `/telegram:configure` → paste the bot token from 1Password
+2. Restart Claude Code (the plugin requires a restart to start polling)
+3. Detach with `Ctrl-b d` — **never `Ctrl-c`** (that kills the session)
+
+The token is stored at `~/.claude/channels/telegram/.env` and persists
+across restarts. **Tokens are per-host** — pairing on a different
+machine (e.g. your old Kai host) doesn't carry over. Each new host
+needs its own `/telegram:configure` run.
 
 Pair the bot:
 
-5. Open the Telegram DM with the bot and send any message
-6. Claude Code prints a 6-character pairing code in the terminal
-7. Paste the code into the Telegram DM
-8. You should see `Paired. Say hi to Claude.`
+4. Open the Telegram DM with the bot and send any message
+5. Claude Code prints a 6-character pairing code in the terminal
+6. Paste the code into the Telegram DM
+7. You should see `Paired. Say hi to Claude.`
 
 Smoke test:
 
-9. From Telegram: `morning. what should I tackle first today`
-10. Expect a reply in Kai's voice plus a new entry in
+8. From Telegram: `morning. what should I tackle first today`
+9. Expect a reply in Kai's voice plus a new entry in
     `${VAULT_PATH}/00 Inbox/jarvis-routing-<today>.md`
 
 ## 7. Autostart

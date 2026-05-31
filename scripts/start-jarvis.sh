@@ -9,6 +9,11 @@
 
 load_env
 
+# systemd strips ~/.bun/bin and ~/.local/bin from PATH. The Telegram
+# channel plugin spawns its MCP server via `bun`; without bun on PATH
+# the spawn fails with ENOENT and the bot never comes online.
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
+
 if tmux_session_alive "$TMUX_SESSION"; then
     log "Session '$TMUX_SESSION' already running. Nothing to do."
     log "Attach: tmux attach -t $TMUX_SESSION  (detach with Ctrl-b d, never Ctrl-c)"
@@ -17,6 +22,12 @@ fi
 
 command -v tmux   >/dev/null 2>&1 || die "tmux not found on PATH"
 command -v claude >/dev/null 2>&1 || die "claude (Claude Code) not found on PATH"
+command -v bun    >/dev/null 2>&1 || die "bun not found on PATH — the Telegram channel plugin needs bun to spawn its MCP server. Install via: curl -fsSL https://bun.sh/install | bash"
+
+if [[ ! -s "$HOME/.claude/channels/telegram/.env" ]]; then
+    warn "No bot token found at ~/.claude/channels/telegram/.env."
+    warn "Bot will not come online until you run /telegram:configure inside the session."
+fi
 
 if [[ ! -d "$JARVIS_PROJECT_DIR" ]]; then
     die "JARVIS_PROJECT_DIR does not exist: $JARVIS_PROJECT_DIR"
