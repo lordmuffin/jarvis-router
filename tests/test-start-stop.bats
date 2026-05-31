@@ -25,6 +25,11 @@ EOF
     chmod +x "$STUB_BIN/bun"
 
     export PATH="$STUB_BIN:$PATH"
+
+    # Sandbox the channels state dir so the test never touches the real
+    # one at ~/.claude/channels/telegram/.
+    export HOME="$SANDBOX/home"
+    mkdir -p "$HOME"
 }
 
 teardown() {
@@ -62,4 +67,36 @@ teardown() {
     sed -i "s|JARVIS_PROJECT_DIR=.*|JARVIS_PROJECT_DIR=\"$SANDBOX/nope\"|" "$SANDBOX/.env"
     run bash "$REPO_ROOT/scripts/start-jarvis.sh"
     [ "$status" -ne 0 ]
+}
+
+@test "start-jarvis materializes the op token into the channels .env (0600, single key, no quotes)" {
+    # Stub `op` so we don't talk to 1Password — return a fake-but-valid-shaped
+    # bot token. `op whoami` must succeed so op_read() doesn't bail early.
+    cat > "$STUB_BIN/op" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+    whoami) exit 0 ;;
+    read)
+        # $2 is the op:// ref; we don't care about the value, just emit a token.
+        printf '123456789:AAH-fake-stub-token-for-bats-test\n'
+        ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$STUB_BIN/op"
+
+    sed -i "s|OP_BOT_TOKEN_REF=.*|OP_BOT_TOKEN_REF=\"op://Stub/bot/token\"|" "$SANDBOX/.env"
+
+    run bash "$REPO_ROOT/scripts/start-jarvis.sh"
+    [ "$status" -eq 0 ]
+
+    channels_env="$HOME/.claude/channels/telegram/.env"
+    [ -f "$channels_env" ]
+
+    # Exactly one line, exactly the TELEGRAM_BOT_TOKEN= key, no surrounding quotes.
+    [ "$(wc -l < "$channels_env")" -eq 1 ]
+    grep -q '^TELEGRAM_BOT_TOKEN=123456789:AAH-fake-stub-token-for-bats-test$' "$channels_env"
+
+    # 0600 (-rw-------). %a is the octal mode without the leading 0.
+    [ "$(stat -c '%a' "$channels_env")" = "600" ]
 }

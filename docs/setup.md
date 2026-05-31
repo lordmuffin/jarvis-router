@@ -88,28 +88,32 @@ bash scripts/start-jarvis.sh
 tmux attach -t "$TMUX_SESSION"
 ```
 
-Inside the attached session (first-run only):
+`start-jarvis.sh` resolves `OP_BOT_TOKEN_REF` via `op read` and writes
+the plain token to `~/.claude/channels/telegram/.env` (mode 0600, single
+`TELEGRAM_BOT_TOKEN=` line) every time it runs. The Channels plugin's
+MCP server reads that file at boot — its `.env` parser is a literal
+regex and does NOT expand `$(...)`, `op read`, or `op://` references,
+so the script does the resolution itself. Side effect: `/telegram:configure`
+inside the session is no longer required for the token to be present;
+it's only useful if you want to bypass 1Password.
 
-1. `/telegram:configure` → paste the bot token from 1Password
-2. Restart Claude Code (the plugin requires a restart to start polling)
-3. Detach with `Ctrl-b d` — **never `Ctrl-c`** (that kills the session)
+Detach with `Ctrl-b d` — **never `Ctrl-c`** (that kills the session).
 
-The token is stored at `~/.claude/channels/telegram/.env` and persists
-across restarts. **Tokens are per-host** — pairing on a different
-machine (e.g. your old Kai host) doesn't carry over. Each new host
-needs its own `/telegram:configure` run.
+**Tokens are per-host** — Telegram pairings live in
+`~/.claude/channels/telegram/approved/` and don't carry across machines.
+Each new host pairs fresh.
 
 Pair the bot:
 
-4. Open the Telegram DM with the bot and send any message
-5. Claude Code prints a 6-character pairing code in the terminal
-6. Paste the code into the Telegram DM
-7. You should see `Paired. Say hi to Claude.`
+1. Open the Telegram DM with the bot and send any message
+2. Claude Code prints a 6-character pairing code in the terminal
+3. Paste the code into the Telegram DM
+4. You should see `Paired. Say hi to Claude.`
 
 Smoke test:
 
-8. From Telegram: `morning. what should I tackle first today`
-9. Expect a reply in Kai's voice plus a new entry in
+5. From Telegram: `morning. what should I tackle first today`
+6. Expect a reply in Kai's voice plus a new entry in
     `${VAULT_PATH}/00 Inbox/jarvis-routing-<today>.md`
 
 ## 7. Autostart
